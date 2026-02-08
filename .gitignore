@@ -5,6 +5,5 @@ __pycache__/
 
 # Local dev artifacts
 *.log
-*.json
-!.github/
-
+wyze_scrape*.json
+*_scrape*.json

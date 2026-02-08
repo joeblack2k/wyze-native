@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wyze Native",
+        "description": "Connect to Wyze using your Wyze account and developer API keys.",
+        "data": {
+          "email": "Email",
+          "password": "Password",
+          "key_id": "Key ID",
+          "api_key": "API key"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Authentication failed. Check your credentials and keys.",
+      "rate_limited": "Wyze rate limited the request. Try again later.",
+      "unknown": "Unexpected error."
+    }
+  }
+  ,
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wyze Native Options",
+        "description": "Optional streaming: set a stream URL template (e.g. rtsp://user:pass@{ip}/live or rtsp://127.0.0.1:8554/{name}). Leave empty for snapshot-only.",
+        "data": {
+          "stream_url_template": "Stream URL template",
+          "use_placeholder_image": "Show placeholder image when no snapshot is available"
+        }
+      }
+    }
+  }
+}
