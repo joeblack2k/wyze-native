@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+._*
+
+# Local dev artifacts
+*.log
+*.json
+!.github/
+
