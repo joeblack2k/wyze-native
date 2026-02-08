@@ -79,10 +79,10 @@ The `tools/` folder includes scripts to scrape and diff Wyze cloud payloads for 
 
 - `tools/wyze_scrape.py`
 - `tools/wyze_diff_scrapes.py`
+- `tools/HOWTO.md` (recommended workflow + how to file issues with PID diffs)
 
 These tools require your Wyze developer keys and will query Wyze cloud endpoints. Do not publish scrape output publicly.
 
 ## Credits
 
 - Wyze cloud API behavior referenced from [docker-wyze-bridge](https://github.com/akeslo/docker-wyze-bridge)
-
