@@ -1,0 +1,11 @@
+{
+  "domain": "wyze_native",
+  "name": "Wyze Native",
+  "codeowners": ["@joeblack2k"],
+  "config_flow": true,
+  "documentation": "https://github.com/joeblack2k/wyze-native",
+  "issue_tracker": "https://github.com/joeblack2k/wyze-native/issues",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}
