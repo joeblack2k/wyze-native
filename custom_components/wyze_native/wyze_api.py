@@ -11,12 +11,15 @@ from datetime import datetime
 import hmac
 import json
 import logging
+import ssl
 import time
 import uuid
 from hashlib import md5
+from pathlib import Path
 from typing import Any, Final, TypedDict, cast
 
 import aiohttp
+import certifi
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,6 +66,13 @@ SC_SV: Final[dict[str, dict[str, str]]] = {
 }
 
 _DEFAULT_TIMEOUT: Final = aiohttp.ClientTimeout(total=20)
+
+
+def create_wyze_ssl_context() -> ssl.SSLContext:
+    """Create an SSL context with a current CA bundle for Wyze cloud endpoints."""
+    context = ssl.create_default_context(cafile=certifi.where())
+    context.load_verify_locations(cafile=str(Path(__file__).with_name("wyze_ca_bundle.pem")))
+    return context
 
 
 class WyzeApiError(Exception):
@@ -164,8 +174,10 @@ class WyzeApiClient:
         access_token: str | None = None,
         refresh_token: str | None = None,
         user_id: str | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         self._session = session
+        self._ssl_context = ssl_context
 
         self._email = email.strip()
         self._password = password
@@ -197,6 +209,10 @@ class WyzeApiClient:
     @property
     def user_id(self) -> str | None:
         return self._user_id
+
+    @property
+    def ssl_context(self) -> ssl.SSLContext | None:
+        return self._ssl_context
 
     def _headers(
         self,
@@ -267,6 +283,7 @@ class WyzeApiClient:
             json=json_data,
             data=data,
             timeout=timeout,
+            ssl=self._ssl_context,
         ) as resp:
             # Prefer handling explicit 429 responses rather than pre-emptively failing
             # based on "remaining" headers (which can be low even for a successful flow).
@@ -327,9 +344,22 @@ class WyzeApiClient:
             )
         except WyzeAccessTokenError:
             await self.async_refresh_token()
+            if json_data is not None:
+                json_data = self._refresh_payload_auth_fields(json_data)
             return await self._request_json(
                 method, url, headers=headers, json_data=json_data, data=data, params=params
             )
+
+    def _refresh_payload_auth_fields(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Return payload copy with the latest token fields after refresh."""
+        updated = dict(payload)
+        if "access_token" in updated:
+            updated["access_token"] = self._access_token
+        if "phone_id" in updated:
+            updated["phone_id"] = self._phone_id
+        if "ts" in updated:
+            updated["ts"] = int(time.time() * 1000)
+        return updated
 
     async def login(self) -> WyzeCredential:
         """Login and store access/refresh tokens.

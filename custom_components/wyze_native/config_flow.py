@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
@@ -25,7 +25,13 @@ from .const import (
     CONF_USE_PLACEHOLDER_IMAGE,
     DOMAIN,
 )
-from .wyze_api import WyzeApiClient, WyzeApiError, WyzeAuthError, WyzeRateLimitError
+from .wyze_api import (
+    WyzeApiClient,
+    WyzeApiError,
+    WyzeAuthError,
+    WyzeRateLimitError,
+    create_wyze_ssl_context,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,17 +71,21 @@ class WyzeNativeConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(email.lower())
             self._abort_if_unique_id_configured()
 
-            session = async_get_clientsession(self.hass)
-            client = WyzeApiClient(
-                session,
-                email=email,
-                password=password,
-                key_id=key_id,
-                api_key=api_key,
-            )
+            ssl_context = await self.hass.async_add_executor_job(create_wyze_ssl_context)
 
             try:
-                cred = await client.login()
+                async with aiohttp.ClientSession(
+                    connector=aiohttp.TCPConnector(ssl=ssl_context)
+                ) as session:
+                    client = WyzeApiClient(
+                        session,
+                        email=email,
+                        password=password,
+                        key_id=key_id,
+                        api_key=api_key,
+                        ssl_context=ssl_context,
+                    )
+                    cred = await client.login()
             except WyzeRateLimitError as err:
                 _LOGGER.warning("Wyze rate limited during login: %s", err)
                 errors["base"] = "rate_limited"

@@ -16,7 +16,6 @@ except ImportError:  # pragma: no cover
     CameraEntityFeature = None  # type: ignore[assignment]
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -106,7 +105,7 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator: WyzeNativeDataUpdateCoordinator = data["coordinator"]
     api: WyzeApiClient = data["api"]
-    session = async_get_clientsession(hass)
+    session = data["session"]
 
     async_add_entities(
         [WyzeNativeCamera(coordinator, api, session, mac) for mac in coordinator.data]
@@ -157,6 +156,7 @@ class WyzeNativeCamera(WyzeNativeEntity, Camera):
                 u,
                 headers=_WYZE_THUMB_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=15),
+                ssl=self._api.ssl_context,
             ) as resp:
                 if resp.status in (401, 403):
                     _LOGGER.debug("Thumbnail fetch forbidden for %s (status=%s)", self._mac, resp.status)

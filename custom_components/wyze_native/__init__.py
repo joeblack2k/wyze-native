@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 
+import aiohttp
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
@@ -19,7 +20,12 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import WyzeNativeDataUpdateCoordinator
-from .wyze_api import WyzeApiClient, WyzeApiError, WyzeAuthError
+from .wyze_api import (
+    WyzeApiClient,
+    WyzeApiError,
+    WyzeAuthError,
+    create_wyze_ssl_context,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,7 +60,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Wyze Native from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    session = async_get_clientsession(hass)
+    ssl_context = await hass.async_add_executor_job(create_wyze_ssl_context)
+    session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context))
     api = WyzeApiClient(
         session,
         email=entry.data[CONF_EMAIL],
@@ -65,6 +72,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         access_token=entry.data.get("access_token"),
         refresh_token=entry.data.get("refresh_token"),
         user_id=entry.data.get("user_id"),
+        ssl_context=ssl_context,
     )
 
     # Ensure we have a valid token before starting the coordinator.
@@ -80,7 +88,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = WyzeNativeDataUpdateCoordinator(hass, entry, api)
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data[DOMAIN][entry.entry_id] = {"api": api, "coordinator": coordinator}
+    hass.data[DOMAIN][entry.entry_id] = {
+        "api": api,
+        "coordinator": coordinator,
+        "session": session,
+    }
 
     _cleanup_stale_entity_registry_entries(hass, entry, coordinator)
 
@@ -125,5 +137,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Wyze Native config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        data = hass.data[DOMAIN].pop(entry.entry_id, {})
+        session = data.get("session")
+        if isinstance(session, aiohttp.ClientSession) and not session.closed:
+            await session.close()
     return unload_ok
